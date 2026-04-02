@@ -1,10 +1,10 @@
 [project]
 name = "klub-100-maker"
 version = "0.1.0"
-description = "Add your description here"
+description = "Toolkit for building a Klub 100 playlist from a CSV tracklist"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "yt-dlp[default]==2025.11.12",
+    "yt-dlp",
     "ffmpeg-python>=0.2.0",
 ]

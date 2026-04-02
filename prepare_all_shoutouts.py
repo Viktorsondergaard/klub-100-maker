@@ -3,15 +3,7 @@ import argparse
 import csv
 import multiprocessing
 import os
-import subprocess
 
-err = subprocess.Popen(['pip', 'install', 'ffmpeg'], 
-                       stdout=subprocess.DEVNULL, 
-                       stderr=subprocess.PIPE).communicate()[1]
-
-if len(err) != 0:
-    print(err)
-    exit(1)
 
 if __name__ == '__main__':
     

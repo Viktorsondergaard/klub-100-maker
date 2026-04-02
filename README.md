@@ -1,31 +1,35 @@
-## Setting Up the Environment
+# klub-100-maker
 
-Ensure you have `uv` installed. If not, install it using `pipx`:
+Toolkit for building a Klub 100 playlist from a CSV tracklist.
+
+## Prerequisites
+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [ffmpeg](https://ffmpeg.org/) installed and on PATH
+- [Node.js](https://nodejs.org/) installed and on PATH (required by yt-dlp for YouTube signature decryption)
+
+## Getting Started
 
 ```bash
-pipx install uv
-uv init
-uv pip install -r requirements.txt
-```
+# Install dependencies (handled automatically by uv on first run)
+uv sync
 
-```bash
+# Or run scripts directly — uv installs deps on the fly
 uv run python dl.py
 ```
 
+> **Tip:** If downloads are failing, yt-dlp may be outdated. Run `uv lock --upgrade-package yt-dlp && uv sync` to pull the latest version.
 
-# Hvordan, hvor og hvorfor gør jeg ting?
+## Mappestruktur
 
-OBS: Hvis din dl.py virker dårligt opdatere evt yt-dlp.
-
-Før du kører noget som helst, bør indholdet af denne mappe have følgende struktur:
+Inden du begynder, bor mappen se saadan ud:
 
 ```
 klub-100-maker/
 ├── shoutouts/
 │   ├── 1.wav
 │   ├── 2.wav
-│   ├── ...
-│   └── n.wav
+│   └── ...
 ├── klub.csv
 ├── dl.py
 ├── prepare_shoutout.py
@@ -35,26 +39,37 @@ klub-100-maker/
 └── combine.py
 ```
 
-hvor ./shoutouts/n.wav indeholder skud ud'et til den n'te sang i klub 100en, hvis det giver mening. Skud ud'et kommer *før* sangen, så ./shoutouts/1.wav er jeres intro-skud-ud.
+`shoutouts/n.wav` indeholder skud ud'et til den n'te sang i klub 100'en. Skud ud'et kommer *for* sangen, saa `shoutouts/1.wav` er jeres intro-skud-ud.
 
 ## klub.csv
 
-Denne .csv fil indeholder information om sangene i en klub 100. Hver række svarer til en sang og et skud ud, hvor første kolonne er sangens navn, anden kolonne er et YouTube/SoundCloud link, og tredje kolonne er det timestamp (i sekunder) i sangen, hvor jeres ene minut af sangen skal begynde.
+CSV-fil med information om sangene. Hver raekke er en sang:
 
-## Byg mig en klub 100, tak
+| Kolonne | Indhold |
+|---------|---------|
+| 1 | Sangens navn |
+| 2 | YouTube/SoundCloud link |
+| 3 | Timestamp (sekunder) hvor jeres minut af sangen starter |
 
-* Placér klub.csv i samme mappe som scriptsne
-* Kør dl.py for at downloade alle sange til ./tracks/
-* Kør prepare_all_tracks.py for at trimme, fade, og loudness normalisere alle sange. Resultatet placeres i ./prepared_tracks/
-* Kør prepare_all_shoutouts.py for at loudness normalisere alle skud ud, som ryger i ./prepared_shoutouts
-* Kør combine.py for at kombinere sange og skud ud til en endelig klub.mp3.
+## Byg en Klub 100
 
-Kræver:
- * `python3`
- * `yt-dlp` - for at køre dl.py
- * `ffmpeg` - for at køre prepare_track.py, prepare_shoutout.py og combine.py
+```bash
+# 1. Download alle sange til ./tracks/
+uv run python dl.py
 
-## Gode kommandoer til at tjekke resultater
+# 2. Trim, fade og loudness-normaliser sange -> ./prepared_tracks/
+uv run python prepare_all_tracks.py
 
-ls | wc -l # Tæller alle filer
-for f in *.m4a; do mv -- "$f" "${f%.m4a}.wav"; done
+# 3. Loudness-normaliser skud ud -> ./prepared_shoutouts/
+uv run python prepare_all_shoutouts.py
+
+# 4. Kombiner til endelig klub100.mp3
+uv run python combine.py
+```
+
+## Nyttige kommandoer
+
+```bash
+ls tracks/ | wc -l          # Antal downloadede filer
+for f in *.m4a; do mv -- "$f" "${f%.m4a}.wav"; done  # Konverter m4a -> wav
+```
