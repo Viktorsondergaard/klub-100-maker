@@ -1,6 +1,7 @@
 # klub-100-maker
 
 Toolkit for building a Klub 100 (100 one-minute songs with shoutouts in between) from a CSV tracklist.
+Songs can be downloaded from **YouTube, SoundCloud and Dropbox** links.
 
 ## Prerequisites
 
@@ -37,7 +38,7 @@ klub-100-maker/
 │   ├── 0_stiv.wav   # kun med -beercounter
 │   ├── 1.wav
 │   └── ...
-├── tracks/          # dl.py fylder den; Dropbox-sange lægges i manuelt som <række>.wav
+├── tracks/          # dl.py fylder den; sange uden link lægges i manuelt som <række>.wav
 ├── klub.csv
 └── *.py
 ```
@@ -51,9 +52,23 @@ UTF-8 CSV uden header. Række *n* = sang *n*. Byt ikke om på rækker uden også
 | Kolonne | Indhold |
 |---------|---------|
 | 1 | Sangens navn |
-| 2 | YouTube/SoundCloud-link. Alt der ikke starter med `http` (fx `Dropboxen`) springes over af `dl.py` og skal lægges i `tracks/<n>.wav` manuelt |
+| 2 | Link til sangen: YouTube, SoundCloud, Dropbox (eller alt andet yt-dlp kan). Alt der ikke starter med `http` (fx `Dropboxen`) springes over af `dl.py` og skal lægges i `tracks/<n>.wav` manuelt |
 | 3 | Timestamp (sekunder) hvor jeres minut af sangen starter |
 | 4+ | Fri noter, ignoreres |
+
+## Dropbox-links
+
+`dl.py` kan hente sange direkte fra Dropbox, uden login eller API-nøgle:
+
+1. Højreklik på **den enkelte sang** i Dropbox → *Kopiér link* (delt som "alle med linket").
+2. Sæt linket ind i kolonne 2 i `klub.csv`, fx
+   `https://www.dropbox.com/scl/fi/abc123/sang.mp3?rlkey=xyz&dl=0`
+   Behold `rlkey=`, ellers virker linket ikke. `dl=0` er fint, scriptet laver det selv om til `dl=1`.
+3. `uv run dl.py`. Filen hentes og konverteres til `tracks/<n>.wav` (mp3, m4a, wav osv. virker alle).
+
+Begrænsninger:
+- **Link til en mappe virker ikke** (Dropbox giver en zip). `dl.py` melder fejl, brug linket til den enkelte fil. Filer *inde i* en delt mappe (`/scl/fo/.../sang.mp3?rlkey=...`) virker fint.
+- **Kodeordsbeskyttede links** virker ikke. Fjern kodeordet eller læg filen ind manuelt.
 
 ## Byg en Klub 100
 

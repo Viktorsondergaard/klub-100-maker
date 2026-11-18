@@ -6,11 +6,11 @@ Guide for Claude Code agents (and humans) working in this repo. Read it fully be
 
 A small Python CLI toolkit that builds a **Klub 100**: a drinking-game mix of ~100 one-minute song clips, each preceded by a short spoken "skud ud" (shoutout), concatenated into one `klub100.mp3`. Danish student-association tooling, so song names, CSV notes and parts of the README are Danish.
 
-Everything is driven by `klub.csv`. There is no package, no tests, no CI. Just six scripts run in order from the repo root.
+Songs are downloaded from YouTube, SoundCloud (via yt-dlp) and Dropbox share links (direct download), or copied in by hand. Everything is driven by `klub.csv`. There is no package, no tests, no CI. Just six scripts run in order from the repo root.
 
 ```
 klub.csv ──► dl.py ──► tracks/<n>.wav ──► prepare_all_tracks.py ──► prepared_tracks/<n>.wav ──┐
-                         ▲ (Dropbox rows copied in by hand)                                        ├─► combine.py ──► klub100.mp3
+                         ▲ (rows w/o link copied in by hand)                                       ├─► combine.py ──► klub100.mp3
 shoutouts/*.wav ─────────────────────────► prepare_all_shoutouts.py ──► prepared_shoutouts/*.wav ─┘
 ```
 
@@ -48,7 +48,7 @@ A healthy `-v` run shows `JS runtimes: deno-…` and `[jsc:deno] Solving JS chal
 - **CSV row number (1-based) = file name everywhere.** Row 7 → `tracks/7.wav` → `prepared_tracks/7.wav`, shoutout `7.wav` plays *before* song 7. Rows are counted even when skipped, so **never reorder, insert or delete rows without renaming the matching audio files.**
 - `klub.csv`: UTF-8, **no header**, may have CRLF endings and no trailing newline. Count rows with Python's `csv` module, not `wc -l` (the current file has 102 rows but `wc -l` says 101).
   - col 1: song name (display/logging only)
-  - col 2: link. Only values starting with `http(s)://` (YouTube, SoundCloud…) are downloaded. Anything else (`Dropboxen`, `dropbox`, empty) means the WAV is copied into `tracks/<n>.wav` by hand.
+  - col 2: link. Only values starting with `http(s)://` are downloaded: Dropbox share links via the direct path below, everything else (YouTube, SoundCloud…) via yt-dlp. Anything else (the placeholder `Dropboxen`, `dropbox`, empty) means the WAV is copied into `tracks/<n>.wav` by hand.
   - col 3: start offset in seconds for the 60 s clip (`prepare_all_tracks.py` reads `row[2]`, so it must exist and be numeric)
   - col 4+: free-form notes, ignored
 - `klub_temp.csv` and other CSV variants are the user's scratch copies. **Don't edit or commit CSVs unless asked.**
@@ -62,7 +62,7 @@ All flags are single-dash argparse long names (`-j`, `-sprint`). Boolean flags a
 
 | Script | Does | Flags (defaults) |
 |---|---|---|
-| `dl.py` | yt-dlp each URL row → `tracks/<n>.wav`. Downloads to `<n>.part-dl.wav` and `os.replace`s on success, so a failed download never destroys an existing track. Never wipes `tracks/`. Prints a failed-track list at the end | `-j 8`, `-timeout 300`, `-skip-existing` |
+| `dl.py` | Each URL row → `tracks/<n>.wav`. Dropbox links: direct download + ffmpeg convert; others: yt-dlp. Downloads to `<n>.part-dl.wav` and `os.replace`s on success, so a failed download never destroys an existing track. Never wipes `tracks/`. Prints a failed-track list at the end | `-j 8`, `-timeout 300`, `-skip-existing` |
 | `prepare_track.py` | One file: seek to `-ss`, trim to 60 s, loudnorm to `-t` LUFS (TP −1), fade in/out `-f` s, write 44.1 kHz stereo PCM WAV | `input output -ss 0 -t -14 -f 3` |
 | `prepare_all_tracks.py` | `prepare_track` over every `tracks/<n>.wav` that exists, using CSV col 3 as start. `-sprint`: rows 74–89 become 30 s with 2 s fades | `-input tracks -output prepared_tracks -t -14 -f 3 -j 4 -sprint` |
 | `prepare_shoutout.py` | One file: loudnorm only, 44.1 kHz stereo WAV | `input output -t -14` |
@@ -78,6 +78,16 @@ uv run prepare_all_shoutouts.py
 uv run combine.py -beercounter     # or without -beercounter
 ```
 
+### Dropbox downloads (`dl.py`)
+
+Dropbox links are **not** sent through yt-dlp. yt-dlp's Dropbox extractor scrapes the preview page and is fragile. Instead:
+
+1. `is_dropbox()` matches hosts `dropbox.com`, `www.dropbox.com`, `dl.dropbox.com`, `dl.dropboxusercontent.com`.
+2. `dropbox_direct_url()` keeps all query params (the `rlkey` is mandatory for `/scl/fi/` and `/scl/fo/` links), drops `dl`/`raw` and appends `dl=1`.
+3. `download_dropbox()` fetches with `urllib` to `<n>.part-dl.src`, rejects zips (`PK` magic = folder link) and `text/html` responses (password-protected or not shared), converts with the bundled ffmpeg to `<n>.part-dl.wav`, and `download()` then `os.replace`s it onto `tracks/<n>.wav`.
+
+No auth or API token. Only public "anyone with the link" share links work. Not supported: folder links (would need a zip extractor plus a filename → row mapping) and password-protected links (yt-dlp `--video-password` could do it if ever needed). Offline-testable by monkeypatching `dl.dropbox_direct_url` to return a `file://` URL.
+
 ## Running heavy things: ask, cap, back up
 
 The machine is a 22-core / 30 GB Linux box that has crashed from uncapped parallel ffmpeg before.
@@ -86,7 +96,7 @@ The machine is a 22-core / 30 GB Linux box that has crashed from uncapped parall
 - When asked to run them, cap memory and parallelism:
   `systemd-run --user --scope --quiet -p MemoryMax=8G -p MemorySwapMax=0 -- uv run <script>.py -j 4`
 - **Back up first:** `prepare_*` and `combine.py` overwrite outputs in place. Copy what will be overwritten (e.g. `klub100.mp3`, affected `prepared_tracks/<n>.wav`) to a sibling folder like `../klub100-backup-YYYY-MM-DD/`.
-- Always safe: `-h`, `python -m py_compile`, `uv lock --check`, `ffprobe`, `ls`, reading CSVs, `yt-dlp --simulate` on one URL, tiny synthetic tests (`ffmpeg -f lavfi -i sine=f=440:d=4 …`) in a temp dir.
+- Always safe: `-h`, `python -m py_compile`, `uv lock --check`, `ffprobe`, `ls`, reading CSVs, `yt-dlp --simulate` on one URL, a single small Dropbox file download, tiny synthetic tests (`ffmpeg -f lavfi -i sine=f=440:d=4 …`) in a temp dir.
 
 Reference timings on this machine (17 URL tracks, 102 rows, `-j 4`): dl ≈ 30 s, prepare tracks ≈ 30 s, shoutouts ≈ 1 s, combine ≈ 90 s (≈ 1 h 45 min of audio, ~135 MB mp3).
 
