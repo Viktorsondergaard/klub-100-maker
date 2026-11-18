@@ -3,12 +3,17 @@ import argparse
 import os
 import subprocess
 
+from imageio_ffmpeg import get_ffmpeg_exe
+
+# Static ffmpeg shipped in the imageio-ffmpeg wheel (override with IMAGEIO_FFMPEG_EXE).
+FFMPEG = get_ffmpeg_exe()
+
 
 def prepare_track(input, output, ss=0, t=-14, f=3, track_length='60'):
     print('Preparing', input + '...')
     
     # trim
-    p1 = subprocess.Popen(['ffmpeg',
+    p1 = subprocess.Popen([FFMPEG,
                            '-loglevel', 'error',
                            '-ss', str(ss),
                            '-i', input, '-t', track_length, '-f', 'wav', '-'],
@@ -17,7 +22,7 @@ def prepare_track(input, output, ss=0, t=-14, f=3, track_length='60'):
     # normalize
     # two-pass ebu r128 loudnorm filter
     # loudnorm pass 1
-    p2 = subprocess.Popen(['ffmpeg',
+    p2 = subprocess.Popen([FFMPEG,
                            '-loglevel', 'error',
                            '-i', '-',
                            '-pass', '1', '-af', 'loudnorm=I=' + str(t) + ':TP=-1',
@@ -26,7 +31,7 @@ def prepare_track(input, output, ss=0, t=-14, f=3, track_length='60'):
                           stdout=subprocess.PIPE)
     
     # loudnorm pass 2
-    p3 = subprocess.Popen(['ffmpeg',
+    p3 = subprocess.Popen([FFMPEG,
                            '-loglevel', 'error',
                            '-i', '-',
                            '-pass', '2', '-af', 'loudnorm=I=' + str(t) + ':TP=-1',
@@ -36,11 +41,12 @@ def prepare_track(input, output, ss=0, t=-14, f=3, track_length='60'):
                           stdout=subprocess.PIPE)
     
     # fade
-    p4 = subprocess.Popen(['ffmpeg',
+    p4 = subprocess.Popen([FFMPEG,
                            '-loglevel', 'error',
                            '-i', '-', '-af',
                            'afade=t=in:ss=0:d=' + str(f) +
-                           ',afade=t=out:st=' + str(60 - f) + ':d=' + str(f),
+                           ',afade=t=out:st=' + str(float(track_length) - f) + ':d=' + str(f),
+                           '-ar', '44100', '-ac', '2',  # loudnorm upsamples to 192 kHz
                            '-f', 'wav', '-y', output],
                           stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE)

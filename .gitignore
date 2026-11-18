@@ -1,9 +1,12 @@
 # Audio working files (too large for git)
 tracks/
 tracks_test/
+temp_songs/
 prepared_tracks/
+prepared_shoutouts/
 *.mp3
 *.wav
+*.m4a
 
 # Python
 __pycache__/

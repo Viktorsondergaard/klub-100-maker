@@ -1,10 +1,12 @@
 [project]
 name = "klub-100-maker"
-version = "0.1.0"
+version = "0.2.0"
 description = "Toolkit for building a Klub 100 playlist from a CSV tracklist"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "yt-dlp",
-    "ffmpeg-python>=0.2.0",
+    "imageio-ffmpeg>=0.8.1",
+    # `default` pulls in yt-dlp-ejs (YouTube JS challenge solver scripts),
+    # `deno` ships a Deno binary in the venv so no system JS runtime is needed.
+    "yt-dlp[default,deno]>=2026.10.26",
 ]

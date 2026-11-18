@@ -3,13 +3,18 @@ import argparse
 import os
 import subprocess
 
+from imageio_ffmpeg import get_ffmpeg_exe
+
+# Static ffmpeg shipped in the imageio-ffmpeg wheel (override with IMAGEIO_FFMPEG_EXE).
+FFMPEG = get_ffmpeg_exe()
+
 
 def prepare_shoutout(input, output, t=-14):
     print('Preparing', input + '...')
     
     # two-pass ebu r128 loudnorm filter
     # loudnorm pass 1
-    p1 = subprocess.Popen(['ffmpeg', '-loglevel', 'error',
+    p1 = subprocess.Popen([FFMPEG, '-loglevel', 'error',
                            '-i', input,
                            '-pass', '1', '-af', 'loudnorm=I=' + str(t) + ':TP=-1',
                            '-f', 'wav', '-y', os.devnull],  # generate log in null
@@ -17,9 +22,10 @@ def prepare_shoutout(input, output, t=-14):
                           stdout=subprocess.PIPE)
     
     # loudnorm pass 2
-    p2 = subprocess.Popen(['ffmpeg', '-loglevel', 'error',
+    p2 = subprocess.Popen([FFMPEG, '-loglevel', 'error',
                            '-i', input,
                            '-pass', '2', '-af', 'loudnorm=I=' + str(t) + ':TP=-1',
+                           '-ar', '44100', '-ac', '2',  # loudnorm upsamples to 192 kHz
                            '-f', 'wav', '-y', output],
                           stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE)
